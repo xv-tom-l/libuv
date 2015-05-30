@@ -114,6 +114,7 @@ if(WIN32)
        src/win/async.c
        src/win/core.c
        src/win/detect-wakeup.c
+       src/win/device.c
        src/win/dl.c
        src/win/error.c
        src/win/fs.c
@@ -149,6 +150,7 @@ else()
   list(APPEND uv_sources
        src/unix/async.c
        src/unix/core.c
+       src/unix/device.c
        src/unix/dl.c
        src/unix/fs.c
        src/unix/getaddrinfo.c
