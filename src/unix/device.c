@@ -36,16 +36,16 @@ static int uv__device_open(uv_loop_t* loop,
   assert(device);
 
   if (flags == O_RDONLY)
-    uvflags |= UV_STREAM_READABLE;
+    uvflags |= UV_HANDLE_READABLE;
   else if (flags == O_WRONLY)
-    uvflags |= UV_STREAM_WRITABLE;
+    uvflags |= UV_HANDLE_WRITABLE;
   else if (flags == O_RDWR)
-    uvflags |= UV_STREAM_READABLE | UV_STREAM_WRITABLE;
+    uvflags |= UV_HANDLE_READABLE | UV_HANDLE_WRITABLE;
 
   if (fstat(fd, &s))
     return UV_UNKNOWN_HANDLE;
   if (!S_ISCHR(s.st_mode) && !S_ISBLK(s.st_mode))
-    return UV_UNKNOWN_HANDLE; 
+    return UV_UNKNOWN_HANDLE;
 
   uv__stream_init(loop, (uv_stream_t*) device, UV_DEVICE);
   err = uv__nonblock(fd, 1);

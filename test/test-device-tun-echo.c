@@ -330,7 +330,7 @@ static void after_read(uv_stream_t* handle,
       return;
     }
   } else {
-    fprintf(stderr, "data %p len:%d\n", buf->base,(int) buf->len);
+    fprintf(stderr, "data %p len:%d\n", (void*)buf->base,(int) buf->len);
     fflush(stderr);
   }
 }
@@ -342,7 +342,9 @@ static void echo_alloc(uv_handle_t* handle,
   buf->len = suggested_size;
 }
 
+#if defined(__linux__) || defined(WIN32)
 static char dev_path[1024];
+#endif
 #ifdef WIN32
 static char dev_name[1024];
 #endif
@@ -370,7 +372,7 @@ static const char* tun_get_path() {
 }
 
 static int tun_config(uv_device_t *device) {
-  int r;
+  int r = 0;
 #ifdef __linux__
   struct ifreq ifr;
   uv_ioargs_t args = {0};
