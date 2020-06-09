@@ -106,7 +106,7 @@ int uv_device_ioctl(uv_device_t* device,
   BOOL r;
   DWORD size = 0;
   assert(device && device->handle != INVALID_HANDLE_VALUE);
-  assert(args && args->input && args->input_len && args->output_len);
+  assert(args && args->input && args->input_len);
 
   r = DeviceIoControl(device->handle, 
                       cmd,
