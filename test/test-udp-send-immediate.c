@@ -68,6 +68,7 @@ static void sv_recv_cb(uv_udp_t* handle,
                        ssize_t nread,
                        const uv_buf_t* rcvbuf,
                        const struct sockaddr* addr,
+                       const struct sockaddr* dst,
                        unsigned flags) {
   if (nread < 0) {
     ASSERT(0 && "unexpected error");

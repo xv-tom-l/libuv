@@ -89,6 +89,7 @@ static void pinger_read_cb(uv_udp_t* udp,
                            ssize_t nread,
                            const uv_buf_t* buf,
                            const struct sockaddr* addr,
+                           const struct sockaddr* dst,
                            unsigned flags) {
   ssize_t i;
   pinger_t* pinger;

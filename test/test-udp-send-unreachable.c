@@ -78,6 +78,7 @@ static void recv_cb(uv_udp_t* handle,
                        ssize_t nread,
                        const uv_buf_t* rcvbuf,
                        const struct sockaddr* addr,
+                       const struct sockaddr* dst,
                        unsigned flags) {
   CHECK_HANDLE(handle);
   recv_cb_called++;

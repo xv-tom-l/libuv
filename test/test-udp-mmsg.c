@@ -72,6 +72,7 @@ static void recv_cb(uv_udp_t* handle,
                     ssize_t nread,
                     const uv_buf_t* rcvbuf,
                     const struct sockaddr* addr,
+                    const struct sockaddr* dst,
                     unsigned flags) {
   ASSERT_GE(nread, 0);
 
@@ -91,6 +92,16 @@ static void recv_cb(uv_udp_t* handle,
     ASSERT_NOT_NULL(addr);
     ASSERT_MEM_EQ("PING", rcvbuf->base, nread);
     received_datagrams++;
+
+#if defined(__linux__)
+  if (handle->udp_flags & UV_UDP_PKTINFO) {
+    ASSERT_NOT_NULL(dst);
+    ASSERT_EQ(AF_INET, dst->sa_family);
+    char dst_ip[100] = {0};
+    ASSERT_OK(uv_ip4_name((const struct sockaddr_in *)dst, dst_ip, sizeof(dst_ip)));
+    ASSERT_STR_EQ("127.0.0.1", dst_ip);
+  }
+#endif
   }
 
   recv_cb_called++;
@@ -116,6 +127,50 @@ TEST_IMPL(udp_mmsg) {
                            AF_UNSPEC | UV_UDP_RECVMMSG));
 
   ASSERT_OK(uv_udp_bind(&recver, (const struct sockaddr*) &addr, 0));
+
+  ASSERT_OK(uv_udp_recv_start(&recver, alloc_cb, recv_cb));
+
+  ASSERT_OK(uv_ip4_addr("127.0.0.1", TEST_PORT, &addr));
+
+  ASSERT_OK(uv_udp_init(uv_default_loop(), &sender));
+
+  buf = uv_buf_init("PING", 4);
+  for (i = 0; i < NUM_SENDS; i++) {
+    ASSERT_EQ(4, uv_udp_try_send(&sender, &buf, 1, (const struct sockaddr*) &addr));
+  }
+
+  ASSERT_OK(uv_run(uv_default_loop(), UV_RUN_DEFAULT));
+
+  ASSERT_EQ(2, close_cb_called);
+  ASSERT_EQ(received_datagrams, NUM_SENDS);
+
+  ASSERT_OK(sender.send_queue_size);
+  ASSERT_OK(recver.send_queue_size);
+
+  printf("%d allocs for %d recvs\n", alloc_cb_called, recv_cb_called);
+
+  /* On platforms that don't support mmsg, each recv gets its own alloc */
+  if (uv_udp_using_recvmmsg(&recver))
+    ASSERT_EQ(alloc_cb_called, EXPECTED_MMSG_ALLOCS);
+  else
+    ASSERT_EQ(alloc_cb_called, recv_cb_called);
+
+  MAKE_VALGRIND_HAPPY(uv_default_loop());
+  return 0;
+}
+
+
+TEST_IMPL(udp_mmsg_with_pktinfo) {
+  struct sockaddr_in addr;
+  uv_buf_t buf;
+  int i;
+
+  ASSERT_OK(uv_ip4_addr("0.0.0.0", TEST_PORT, &addr));
+
+  ASSERT_OK(uv_udp_init_ex(uv_default_loop(), &recver,
+                           AF_UNSPEC | UV_UDP_RECVMMSG));
+
+  ASSERT_OK(uv_udp_bind(&recver, (const struct sockaddr*) &addr, UV_UDP_PKTINFO));
 
   ASSERT_OK(uv_udp_recv_start(&recver, alloc_cb, recv_cb));
 
