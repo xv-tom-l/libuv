@@ -334,6 +334,7 @@ TEST_IMPL(udp_ref3) {
               &buf,
               1,
               (const struct sockaddr*) &addr,
+              NULL,
               (uv_udp_send_cb) req_cb);
   uv_unref((uv_handle_t*)&h);
   uv_run(uv_default_loop(), UV_RUN_DEFAULT);

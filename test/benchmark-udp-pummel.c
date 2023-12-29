@@ -101,6 +101,7 @@ send:
                         bufs,
                         ARRAY_SIZE(bufs),
                         (const struct sockaddr*) &s->addr,
+                        NULL,
                         send_cb));
   send_cb_called++;
 }
@@ -197,6 +198,7 @@ static int pummel(unsigned int n_senders,
                           bufs,
                           ARRAY_SIZE(bufs),
                           (const struct sockaddr*) &s->addr,
+                          NULL,
                           send_cb));
   }
 

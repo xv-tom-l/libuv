@@ -92,6 +92,7 @@ TEST_IMPL(watcher_cross_stop) {
                           &buf,
                           1,
                           (const struct sockaddr*) &addr,
+                          NULL,
                           send_cb));
   }
 

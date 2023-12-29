@@ -85,6 +85,7 @@ static int do_send(uv_udp_send_t* send_req) {
                      &buf,
                      1,
                      (const struct sockaddr*) &addr,
+                     NULL,
                      sv_send_cb);
 }
 

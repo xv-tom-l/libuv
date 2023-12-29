@@ -125,6 +125,7 @@ TEST_IMPL(udp_send_immediate) {
                   &buf,
                   1,
                   (const struct sockaddr*) &addr,
+                  NULL,
                   cl_send_cb);
   ASSERT_OK(r);
 
@@ -135,6 +136,7 @@ TEST_IMPL(udp_send_immediate) {
                   &buf,
                   1,
                   (const struct sockaddr*) &addr,
+                  NULL,
                   cl_send_cb);
   ASSERT_OK(r);
 

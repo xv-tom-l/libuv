@@ -66,13 +66,14 @@ static void cl_send_cb(uv_udp_send_t* req, int status) {
   CHECK_HANDLE(req->handle);
   if (++cl_send_cb_called == 1) {
     uv_udp_connect(&client, NULL);
-    r = uv_udp_send(req, &client, &buf, 1, NULL, cl_send_cb);
+    r = uv_udp_send(req, &client, &buf, 1, NULL, NULL, cl_send_cb);
     ASSERT_EQ(r, UV_EDESTADDRREQ);
     r = uv_udp_send(req,
                     &client,
                     &buf,
                     1,
                     (const struct sockaddr*) &lo_addr,
+                    NULL,
                     cl_send_cb);
     ASSERT_OK(r);
   }
@@ -181,9 +182,10 @@ TEST_IMPL(udp_connect6) {
                   &buf,
                   1,
                   (const struct sockaddr*) &lo_addr,
+                  NULL,
                   cl_send_cb);
   ASSERT_EQ(r, UV_EISCONN);
-  r = uv_udp_send(&req, &client, &buf, 1, NULL, cl_send_cb);
+  r = uv_udp_send(&req, &client, &buf, 1, NULL, NULL, cl_send_cb);
   ASSERT_OK(r);
 
   uv_run(uv_default_loop(), UV_RUN_DEFAULT);

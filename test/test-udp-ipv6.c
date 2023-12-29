@@ -194,6 +194,7 @@ static void do_test(uv_udp_recv_cb recv_cb, int bind_flags) {
                   &buf,
                   1,
                   (const struct sockaddr*) &addr,
+                  NULL,
                   send_cb);
   ASSERT_OK(r);
 

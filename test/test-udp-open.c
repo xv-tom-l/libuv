@@ -165,6 +165,7 @@ TEST_IMPL(udp_open) {
                   &buf,
                   1,
                   (const struct sockaddr*) &addr,
+                  NULL,
                   send_cb);
   ASSERT_OK(r);
 
@@ -286,6 +287,7 @@ TEST_IMPL(udp_open_connect) {
                   &buf,
                   1,
                   NULL,
+                  NULL,
                   send_cb);
   ASSERT_OK(r);
 
@@ -337,6 +339,7 @@ TEST_IMPL(udp_send_unix) {
                   &buf,
                   1,
                   (const struct sockaddr*) &addr,
+                  NULL,
                   NULL);
   ASSERT_OK(r);
 

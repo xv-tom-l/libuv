@@ -246,8 +246,7 @@ static void uv__udp_recvmsg(uv_udp_t* handle) {
   int count;
 
   /* Buffer for pktinfo control messages */
-  char cmbuf[1024] = {0};
-  struct cmsghdr* cmsg = NULL;
+  char cmbuf[CMBUF_SIZE] = {0};
 
   assert(handle->recv_cb != NULL);
   assert(handle->alloc_cb != NULL);
@@ -302,7 +301,7 @@ static void uv__udp_recvmsg(uv_udp_t* handle) {
         flags |= UV_UDP_PARTIAL;
 
       if (handle->udp_flags & UV_UDP_PKTINFO) {
-        cmsg = CMSG_FIRSTHDR(&h);
+        struct cmsghdr* cmsg = CMSG_FIRSTHDR(&h);
         for (; cmsg != NULL; cmsg = CMSG_NXTHDR(&h, cmsg)) {
           /* Ignore all non-pktinfo messages */
           if(cmsg->cmsg_level != IPPROTO_IP || cmsg->cmsg_type != IP_PKTINFO) {
@@ -327,6 +326,8 @@ static void uv__udp_recvmsg(uv_udp_t* handle) {
       && handle->recv_cb != NULL);
 }
 
+#define CMBUF_SIZE 0x100
+
 static void uv__udp_sendmsg(uv_udp_t* handle) {
 #if defined(__linux__) || defined(__FreeBSD__)
   uv_udp_send_t* req;
@@ -336,6 +337,7 @@ static void uv__udp_sendmsg(uv_udp_t* handle) {
   ssize_t npkts;
   size_t pkts;
   size_t i;
+  char cbufs[ARRAY_SIZE(h) * CMBUF_SIZE] = {0};
 
   if (uv__queue_empty(&handle->write_queue))
     return;
@@ -366,6 +368,22 @@ write_queue_drain:
         abort();
       }
     }
+
+#if defined(__linux__)
+    if (req->src.ss_family == AF_INET) {
+      struct in_pktinfo pi = {0};
+      struct sockaddr_in *src = (struct sockaddr_in *)&req->src;
+      pi.ipi_spec_dst.s_addr = src->sin_addr.s_addr;
+      struct cmsghdr *cmsg = (struct cmsghdr *)&cbufs[pkts * CMBUF_SIZE];
+      cmsg->cmsg_len = sizeof(struct cmsghdr) + sizeof(struct in_pktinfo);
+      cmsg->cmsg_level = IPPROTO_IP;
+      cmsg->cmsg_type = IP_PKTINFO;
+      memcpy(CMSG_DATA(cmsg), &pi, sizeof(struct in_pktinfo));
+      p->msg_hdr.msg_control = (void *)cmsg;
+      p->msg_hdr.msg_controllen = cmsg->cmsg_len;
+    }
+#endif
+
     h[pkts].msg_hdr.msg_iov = (struct iovec*) req->bufs;
     h[pkts].msg_hdr.msg_iovlen = req->nbufs;
   }
@@ -752,6 +770,8 @@ int uv__udp_send(uv_udp_send_t* req,
                  unsigned int nbufs,
                  const struct sockaddr* addr,
                  unsigned int addrlen,
+                 const struct sockaddr* src,
+                 unsigned int srclen,
                  uv_udp_send_cb send_cb) {
   int err;
   int empty_queue;
@@ -776,6 +796,10 @@ int uv__udp_send(uv_udp_send_t* req,
     req->addr.ss_family = AF_UNSPEC;
   else
     memcpy(&req->addr, addr, addrlen);
+  if (src == NULL || srclen == 0)
+    req->src.ss_family = AF_UNSPEC;
+  else
+    memcpy(&req->src, src, srclen);
   req->send_cb = send_cb;
   req->handle = handle;
   req->nbufs = nbufs;

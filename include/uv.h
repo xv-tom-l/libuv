@@ -747,6 +747,7 @@ UV_EXTERN int uv_udp_send(uv_udp_send_t* req,
                           const uv_buf_t bufs[],
                           unsigned int nbufs,
                           const struct sockaddr* addr,
+                          const struct sockaddr* src,
                           uv_udp_send_cb send_cb);
 UV_EXTERN int uv_udp_try_send(uv_udp_t* handle,
                               const uv_buf_t bufs[],

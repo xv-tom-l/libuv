@@ -1060,6 +1060,8 @@ int uv__udp_send(uv_udp_send_t* req,
                  unsigned int nbufs,
                  const struct sockaddr* addr,
                  unsigned int addrlen,
+                 const struct sockaddr* src,
+                 unsigned int srclen,
                  uv_udp_send_cb send_cb) {
   const struct sockaddr* bind_addr;
   int err;

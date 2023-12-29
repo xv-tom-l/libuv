@@ -143,6 +143,7 @@ TEST_IMPL(udp_send_unreachable) {
                   &buf,
                   1,
                   (const struct sockaddr*) &addr,
+                  NULL,
                   send_cb);
   ASSERT_OK(r);
 
@@ -153,6 +154,7 @@ TEST_IMPL(udp_send_unreachable) {
                   &buf,
                   1,
                   (const struct sockaddr*) &addr,
+                  NULL,
                   send_cb);
   ASSERT_OK(r);
 
@@ -176,6 +178,7 @@ TEST_IMPL(udp_send_unreachable) {
                     &buf,
                     1,
                     (const struct sockaddr*) &addr,
+                    NULL,
                     send_cb_recverr);
     ASSERT_OK(r);
 
@@ -186,6 +189,7 @@ TEST_IMPL(udp_send_unreachable) {
                     &buf,
                     1,
                     (const struct sockaddr*) &addr,
+                    NULL,
                     send_cb_recverr);
     ASSERT_OK(r);
   }

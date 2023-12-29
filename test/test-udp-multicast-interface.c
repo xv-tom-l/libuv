@@ -84,6 +84,7 @@ TEST_IMPL(udp_multicast_interface) {
                   &buf,
                   1,
                   (const struct sockaddr*)&addr,
+                  NULL,
                   sv_send_cb);
   ASSERT_OK(r);
 
