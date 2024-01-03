@@ -61,7 +61,7 @@ TEST_IMPL(udp_sendmmsg_error) {
 
   buf = uv_buf_init("TEST", 4);
   for (i = 0; i < DATAGRAMS; ++i)
-    ASSERT_OK(uv_udp_send(&req[i], &client, &buf, 1, NULL, send_cb));
+    ASSERT_OK(uv_udp_send(&req[i], &client, &buf, 1, NULL, NULL, send_cb));
 
   uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 

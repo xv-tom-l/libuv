@@ -230,6 +230,7 @@ static void on_recv(uv_udp_t* handle,
                     ssize_t nread,
                     const uv_buf_t* rcvbuf,
                     const struct sockaddr* addr,
+                    const struct sockaddr* dst,
                     unsigned flags) {
   uv_buf_t sndbuf;
   uv_udp_send_t* req;
@@ -245,7 +246,7 @@ static void on_recv(uv_udp_t* handle,
   req = send_alloc();
   ASSERT_NOT_NULL(req);
   sndbuf = uv_buf_init(rcvbuf->base, nread);
-  ASSERT_LE(0, uv_udp_send(req, handle, &sndbuf, 1, addr, on_send));
+  ASSERT_LE(0, uv_udp_send(req, handle, &sndbuf, 1, addr, NULL, on_send));
 }
 
 static int tcp4_echo_start(int port) {

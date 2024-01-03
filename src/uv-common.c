@@ -489,6 +489,7 @@ int uv_udp_send(uv_udp_send_t* req,
                 const uv_buf_t bufs[],
                 unsigned int nbufs,
                 const struct sockaddr* addr,
+                const struct sockaddr* src,
                 uv_udp_send_cb send_cb) {
   int addrlen;
 
@@ -496,7 +497,14 @@ int uv_udp_send(uv_udp_send_t* req,
   if (addrlen < 0)
     return addrlen;
 
-  return uv__udp_send(req, handle, bufs, nbufs, addr, addrlen, send_cb);
+  int srclen = 0;
+  if (src != NULL) {
+    if (src->sa_family == AF_INET)
+      srclen = sizeof(struct sockaddr_in);
+    else
+      srclen = 0;
+  }
+  return uv__udp_send(req, handle, bufs, nbufs, addr, addrlen, src, srclen, send_cb);
 }
 
 

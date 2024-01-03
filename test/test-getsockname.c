@@ -240,6 +240,7 @@ static void udp_recv(uv_udp_t* handle,
                      ssize_t nread,
                      const uv_buf_t* buf,
                      const struct sockaddr* addr,
+                     const struct sockaddr* dst,
                      unsigned flags) {
   struct sockaddr sockname;
   int namelen;
@@ -319,6 +320,7 @@ static void udp_sender(void) {
                   &buf,
                   1,
                   (const struct sockaddr*) &server_addr,
+                  NULL,
                   udp_send);
   ASSERT(!r);
 }

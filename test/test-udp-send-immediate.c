@@ -68,6 +68,7 @@ static void sv_recv_cb(uv_udp_t* handle,
                        ssize_t nread,
                        const uv_buf_t* rcvbuf,
                        const struct sockaddr* addr,
+                       const struct sockaddr* dst,
                        unsigned flags) {
   if (nread < 0) {
     ASSERT(0 && "unexpected error");
@@ -124,6 +125,7 @@ TEST_IMPL(udp_send_immediate) {
                   &buf,
                   1,
                   (const struct sockaddr*) &addr,
+                  NULL,
                   cl_send_cb);
   ASSERT_OK(r);
 
@@ -134,6 +136,7 @@ TEST_IMPL(udp_send_immediate) {
                   &buf,
                   1,
                   (const struct sockaddr*) &addr,
+                  NULL,
                   cl_send_cb);
   ASSERT_OK(r);
 

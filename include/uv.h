@@ -672,6 +672,10 @@ enum uv_udp_flags {
    */
   UV_UDP_LINUX_RECVERR = 32,
   /*
+   * Indicates that packet info (PKTINFO) should be enabled when receiving messages.
+   */
+  UV_UDP_PKTINFO = 128,
+  /*
    * Indicates that recvmmsg should be used, if available.
    */
   UV_UDP_RECVMMSG = 256
@@ -681,7 +685,8 @@ typedef void (*uv_udp_send_cb)(uv_udp_send_t* req, int status);
 typedef void (*uv_udp_recv_cb)(uv_udp_t* handle,
                                ssize_t nread,
                                const uv_buf_t* buf,
-                               const struct sockaddr* addr,
+                               const struct sockaddr* src,
+                               const struct sockaddr* dst,
                                unsigned flags);
 
 /* uv_udp_t is a subclass of uv_handle_t. */
@@ -742,6 +747,7 @@ UV_EXTERN int uv_udp_send(uv_udp_send_t* req,
                           const uv_buf_t bufs[],
                           unsigned int nbufs,
                           const struct sockaddr* addr,
+                          const struct sockaddr* src,
                           uv_udp_send_cb send_cb);
 UV_EXTERN int uv_udp_try_send(uv_udp_t* handle,
                               const uv_buf_t bufs[],

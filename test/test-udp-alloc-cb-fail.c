@@ -69,6 +69,7 @@ static void cl_recv_cb(uv_udp_t* handle,
                        ssize_t nread,
                        const uv_buf_t* buf,
                        const struct sockaddr* addr,
+                       const struct sockaddr* dst,
                        unsigned flags) {
   CHECK_HANDLE(handle);
   ASSERT_OK(flags);
@@ -110,6 +111,7 @@ static void sv_recv_cb(uv_udp_t* handle,
                        ssize_t nread,
                        const uv_buf_t* rcvbuf,
                        const struct sockaddr* addr,
+                       const struct sockaddr* dst,
                        unsigned flags) {
   uv_udp_send_t* req;
   uv_buf_t sndbuf;
@@ -139,7 +141,7 @@ static void sv_recv_cb(uv_udp_t* handle,
   ASSERT_NOT_NULL(req);
 
   sndbuf = uv_buf_init("PONG", 4);
-  r = uv_udp_send(req, handle, &sndbuf, 1, addr, sv_send_cb);
+  r = uv_udp_send(req, handle, &sndbuf, 1, addr, NULL, sv_send_cb);
   ASSERT_OK(r);
 
   sv_recv_cb_called++;
@@ -174,6 +176,7 @@ TEST_IMPL(udp_alloc_cb_fail) {
                   &buf,
                   1,
                   (const struct sockaddr*) &addr,
+                  NULL,
                   cl_send_cb);
   ASSERT_OK(r);
 

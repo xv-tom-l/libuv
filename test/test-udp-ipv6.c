@@ -110,6 +110,7 @@ static void ipv6_recv_fail(uv_udp_t* handle,
                            ssize_t nread,
                            const uv_buf_t* buf,
                            const struct sockaddr* addr,
+                           const struct sockaddr* dst,
                            unsigned flags) {
   printf("got %d %.*s\n", (int) nread, nread > 0 ? (int) nread : 0, buf->base);
   if (!is_from_client(addr) || (nread == 0 && addr == NULL))
@@ -122,6 +123,7 @@ static void ipv6_recv_ok(uv_udp_t* handle,
                          ssize_t nread,
                          const uv_buf_t* buf,
                          const struct sockaddr* addr,
+                         const struct sockaddr* dst,
                          unsigned flags) {
   CHECK_HANDLE(handle);
 
@@ -192,6 +194,7 @@ static void do_test(uv_udp_recv_cb recv_cb, int bind_flags) {
                   &buf,
                   1,
                   (const struct sockaddr*) &addr,
+                  NULL,
                   send_cb);
   ASSERT_OK(r);
 

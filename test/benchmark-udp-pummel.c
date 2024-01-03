@@ -101,6 +101,7 @@ send:
                         bufs,
                         ARRAY_SIZE(bufs),
                         (const struct sockaddr*) &s->addr,
+                        NULL,
                         send_cb));
   send_cb_called++;
 }
@@ -110,6 +111,7 @@ static void recv_cb(uv_udp_t* handle,
                     ssize_t nread,
                     const uv_buf_t* buf,
                     const struct sockaddr* addr,
+                    const struct sockaddr* dst,
                     unsigned flags) {
   if (nread == 0)
     return;
@@ -196,6 +198,7 @@ static int pummel(unsigned int n_senders,
                           bufs,
                           ARRAY_SIZE(bufs),
                           (const struct sockaddr*) &s->addr,
+                          NULL,
                           send_cb));
   }
 

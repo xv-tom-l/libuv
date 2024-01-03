@@ -78,6 +78,7 @@ static void recv_cb(uv_udp_t* handle,
                        ssize_t nread,
                        const uv_buf_t* rcvbuf,
                        const struct sockaddr* addr,
+                       const struct sockaddr* dst,
                        unsigned flags) {
   CHECK_HANDLE(handle);
   recv_cb_called++;
@@ -142,6 +143,7 @@ TEST_IMPL(udp_send_unreachable) {
                   &buf,
                   1,
                   (const struct sockaddr*) &addr,
+                  NULL,
                   send_cb);
   ASSERT_OK(r);
 
@@ -152,6 +154,7 @@ TEST_IMPL(udp_send_unreachable) {
                   &buf,
                   1,
                   (const struct sockaddr*) &addr,
+                  NULL,
                   send_cb);
   ASSERT_OK(r);
 
@@ -175,6 +178,7 @@ TEST_IMPL(udp_send_unreachable) {
                     &buf,
                     1,
                     (const struct sockaddr*) &addr,
+                    NULL,
                     send_cb_recverr);
     ASSERT_OK(r);
 
@@ -185,6 +189,7 @@ TEST_IMPL(udp_send_unreachable) {
                     &buf,
                     1,
                     (const struct sockaddr*) &addr,
+                    NULL,
                     send_cb_recverr);
     ASSERT_OK(r);
   }

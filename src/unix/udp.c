@@ -31,6 +31,8 @@
 #include <xti.h>
 #endif
 #include <sys/un.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 
 #if defined(IPV6_JOIN_GROUP) && !defined(IPV6_ADD_MEMBERSHIP)
 # define IPV6_ADD_MEMBERSHIP IPV6_JOIN_GROUP
@@ -147,11 +149,14 @@ static void uv__udp_io(uv_loop_t* loop, uv__io_t* w, unsigned int revents) {
   }
 }
 
+#define CMBUF_SIZE 0x100
+
 static int uv__udp_recvmmsg(uv_udp_t* handle, uv_buf_t* buf) {
 #if defined(__linux__) || defined(__FreeBSD__)
   struct sockaddr_in6 peers[20];
   struct iovec iov[ARRAY_SIZE(peers)];
   struct mmsghdr msgs[ARRAY_SIZE(peers)];
+  char cmbufs[CMBUF_SIZE * ARRAY_SIZE(peers)] = {0};
   ssize_t nread;
   uv_buf_t chunk_buf;
   size_t chunks;
@@ -173,6 +178,11 @@ static int uv__udp_recvmmsg(uv_udp_t* handle, uv_buf_t* buf) {
     msgs[k].msg_hdr.msg_control = NULL;
     msgs[k].msg_hdr.msg_controllen = 0;
     msgs[k].msg_hdr.msg_flags = 0;
+
+    if(handle->udp_flags & UV_UDP_PKTINFO) {
+      msgs[k].msg_hdr.msg_control = (void *)&cmbufs[k * CMBUF_SIZE];
+      msgs[k].msg_hdr.msg_controllen = CMBUF_SIZE;
+    }
   }
 
   do
@@ -181,9 +191,9 @@ static int uv__udp_recvmmsg(uv_udp_t* handle, uv_buf_t* buf) {
 
   if (nread < 1) {
     if (nread == 0 || errno == EAGAIN || errno == EWOULDBLOCK)
-      handle->recv_cb(handle, 0, buf, NULL, 0);
+      handle->recv_cb(handle, 0, buf, NULL, NULL, 0);
     else
-      handle->recv_cb(handle, UV__ERR(errno), buf, NULL, 0);
+      handle->recv_cb(handle, UV__ERR(errno), buf, NULL, NULL, 0);
   } else {
     /* pass each chunk to the application */
     for (k = 0; k < (size_t) nread && handle->recv_cb != NULL; k++) {
@@ -191,17 +201,34 @@ static int uv__udp_recvmmsg(uv_udp_t* handle, uv_buf_t* buf) {
       if (msgs[k].msg_hdr.msg_flags & MSG_TRUNC)
         flags |= UV_UDP_PARTIAL;
 
+      struct sockaddr_in dst_peer = {0};
+      if (handle->udp_flags & UV_UDP_PKTINFO) {
+        struct msghdr* h = &msgs[k].msg_hdr;
+        struct cmsghdr* cmsg = CMSG_FIRSTHDR(h);
+        for (; cmsg != NULL; cmsg = CMSG_NXTHDR(h, cmsg)) {
+          /* Ignore all non-pktinfo messages */
+          if(cmsg->cmsg_level != IPPROTO_IP || cmsg->cmsg_type != IP_PKTINFO) {
+            continue;
+          }
+          struct in_pktinfo *pi = (struct in_pktinfo *)CMSG_DATA(cmsg);
+          dst_peer.sin_family = AF_INET;
+          dst_peer.sin_addr.s_addr = pi->ipi_spec_dst.s_addr;
+          break;
+        }
+      }
+
       chunk_buf = uv_buf_init(iov[k].iov_base, iov[k].iov_len);
       handle->recv_cb(handle,
                       msgs[k].msg_len,
                       &chunk_buf,
                       msgs[k].msg_hdr.msg_name,
+                      (const struct sockaddr*)&dst_peer,
                       flags);
     }
 
     /* one last callback so the original buffer is freed */
     if (handle->recv_cb != NULL)
-      handle->recv_cb(handle, 0, buf, NULL, UV_UDP_MMSG_FREE);
+      handle->recv_cb(handle, 0, buf, NULL, NULL, UV_UDP_MMSG_FREE);
   }
   return nread;
 #else  /* __linux__ || ____FreeBSD__ */
@@ -211,11 +238,15 @@ static int uv__udp_recvmmsg(uv_udp_t* handle, uv_buf_t* buf) {
 
 static void uv__udp_recvmsg(uv_udp_t* handle) {
   struct sockaddr_storage peer;
+  struct sockaddr_storage dst_peer;
   struct msghdr h;
   ssize_t nread;
   uv_buf_t buf;
   int flags;
   int count;
+
+  /* Buffer for pktinfo control messages */
+  char cmbuf[CMBUF_SIZE] = {0};
 
   assert(handle->recv_cb != NULL);
   assert(handle->alloc_cb != NULL);
@@ -229,7 +260,7 @@ static void uv__udp_recvmsg(uv_udp_t* handle) {
     buf = uv_buf_init(NULL, 0);
     handle->alloc_cb((uv_handle_t*) handle, UV__UDP_DGRAM_MAXSIZE, &buf);
     if (buf.base == NULL || buf.len == 0) {
-      handle->recv_cb(handle, UV_ENOBUFS, &buf, NULL, 0);
+      handle->recv_cb(handle, UV_ENOBUFS, &buf, NULL, NULL, 0);
       return;
     }
     assert(buf.base != NULL);
@@ -248,6 +279,11 @@ static void uv__udp_recvmsg(uv_udp_t* handle) {
     h.msg_iov = (void*) &buf;
     h.msg_iovlen = 1;
 
+    if(handle->udp_flags & UV_UDP_PKTINFO) {
+      h.msg_control = (void *)cmbuf;
+      h.msg_controllen = sizeof(cmbuf);
+    }
+
     do {
       nread = recvmsg(handle->io_watcher.fd, &h, 0);
     }
@@ -255,16 +291,31 @@ static void uv__udp_recvmsg(uv_udp_t* handle) {
 
     if (nread == -1) {
       if (errno == EAGAIN || errno == EWOULDBLOCK)
-        handle->recv_cb(handle, 0, &buf, NULL, 0);
+        handle->recv_cb(handle, 0, &buf, NULL, NULL, 0);
       else
-        handle->recv_cb(handle, UV__ERR(errno), &buf, NULL, 0);
+        handle->recv_cb(handle, UV__ERR(errno), &buf, NULL, NULL, 0);
     }
     else {
       flags = 0;
       if (h.msg_flags & MSG_TRUNC)
         flags |= UV_UDP_PARTIAL;
 
-      handle->recv_cb(handle, nread, &buf, (const struct sockaddr*) &peer, flags);
+      if (handle->udp_flags & UV_UDP_PKTINFO) {
+        struct cmsghdr* cmsg = CMSG_FIRSTHDR(&h);
+        for (; cmsg != NULL; cmsg = CMSG_NXTHDR(&h, cmsg)) {
+          /* Ignore all non-pktinfo messages */
+          if(cmsg->cmsg_level != IPPROTO_IP || cmsg->cmsg_type != IP_PKTINFO) {
+            continue;
+          }
+          struct in_pktinfo *pi = (struct in_pktinfo *)CMSG_DATA(cmsg);
+          struct sockaddr_in dst = {0};
+          dst.sin_family = AF_INET;
+          dst.sin_addr.s_addr = pi->ipi_spec_dst.s_addr;
+          memcpy(&dst_peer, &dst, sizeof(dst));
+          break;
+        }
+      }
+      handle->recv_cb(handle, nread, &buf, (const struct sockaddr*)&peer, (const struct sockaddr*)&dst_peer, flags);
     }
     count--;
   }
@@ -275,6 +326,8 @@ static void uv__udp_recvmsg(uv_udp_t* handle) {
       && handle->recv_cb != NULL);
 }
 
+#define CMBUF_SIZE 0x100
+
 static void uv__udp_sendmsg(uv_udp_t* handle) {
 #if defined(__linux__) || defined(__FreeBSD__)
   uv_udp_send_t* req;
@@ -284,6 +337,7 @@ static void uv__udp_sendmsg(uv_udp_t* handle) {
   ssize_t npkts;
   size_t pkts;
   size_t i;
+  char cbufs[ARRAY_SIZE(h) * CMBUF_SIZE] = {0};
 
   if (uv__queue_empty(&handle->write_queue))
     return;
@@ -314,6 +368,22 @@ write_queue_drain:
         abort();
       }
     }
+
+#if defined(__linux__)
+    if (req->src.ss_family == AF_INET) {
+      struct in_pktinfo pi = {0};
+      struct sockaddr_in *src = (struct sockaddr_in *)&req->src;
+      pi.ipi_spec_dst.s_addr = src->sin_addr.s_addr;
+      struct cmsghdr *cmsg = (struct cmsghdr *)&cbufs[pkts * CMBUF_SIZE];
+      cmsg->cmsg_len = sizeof(struct cmsghdr) + sizeof(struct in_pktinfo);
+      cmsg->cmsg_level = IPPROTO_IP;
+      cmsg->cmsg_type = IP_PKTINFO;
+      memcpy(CMSG_DATA(cmsg), &pi, sizeof(struct in_pktinfo));
+      p->msg_hdr.msg_control = (void *)cmsg;
+      p->msg_hdr.msg_controllen = cmsg->cmsg_len;
+    }
+#endif
+
     h[pkts].msg_hdr.msg_iov = (struct iovec*) req->bufs;
     h[pkts].msg_hdr.msg_iovlen = req->nbufs;
   }
@@ -492,7 +562,7 @@ int uv__udp_bind(uv_udp_t* handle,
   int fd;
 
   /* Check for bad flags. */
-  if (flags & ~(UV_UDP_IPV6ONLY | UV_UDP_REUSEADDR | UV_UDP_LINUX_RECVERR))
+  if (flags & ~(UV_UDP_IPV6ONLY | UV_UDP_REUSEADDR | UV_UDP_LINUX_RECVERR | UV_UDP_PKTINFO))
     return UV_EINVAL;
 
   /* Cannot set IPv6-only mode on non-IPv6 socket. */
@@ -532,6 +602,17 @@ int uv__udp_bind(uv_udp_t* handle,
     return err;
 #endif
   }
+
+#if defined(__linux__)
+  if (flags & UV_UDP_PKTINFO) {
+    yes = 1;
+    if (setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &yes, sizeof yes) == -1) {
+      err = UV__ERR(errno);
+      return err;
+    }
+    handle->udp_flags |= UV_UDP_PKTINFO;
+  }
+#endif
 
   if (bind(fd, addr, addrlen)) {
     err = UV__ERR(errno);
@@ -689,6 +770,8 @@ int uv__udp_send(uv_udp_send_t* req,
                  unsigned int nbufs,
                  const struct sockaddr* addr,
                  unsigned int addrlen,
+                 const struct sockaddr* src,
+                 unsigned int srclen,
                  uv_udp_send_cb send_cb) {
   int err;
   int empty_queue;
@@ -713,6 +796,10 @@ int uv__udp_send(uv_udp_send_t* req,
     req->addr.ss_family = AF_UNSPEC;
   else
     memcpy(&req->addr, addr, addrlen);
+  if (src == NULL || srclen == 0)
+    req->src.ss_family = AF_UNSPEC;
+  else
+    memcpy(&req->src, src, srclen);
   req->send_cb = send_cb;
   req->handle = handle;
   req->nbufs = nbufs;
@@ -1006,6 +1093,7 @@ int uv__udp_init_ex(uv_loop_t* loop,
   handle->recv_cb = NULL;
   handle->send_queue_size = 0;
   handle->send_queue_count = 0;
+  handle->udp_flags = 0;
   uv__io_init(&handle->io_watcher, uv__udp_io, fd);
   uv__queue_init(&handle->write_queue);
   uv__queue_init(&handle->write_completed_queue);

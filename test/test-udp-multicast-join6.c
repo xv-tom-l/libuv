@@ -96,6 +96,7 @@ static int do_send(uv_udp_send_t* send_req) {
                      &buf,
                      1,
                      (const struct sockaddr*) &addr,
+                     NULL,
                      sv_send_cb);
 }
 
@@ -104,6 +105,7 @@ static void cl_recv_cb(uv_udp_t* handle,
                        ssize_t nread,
                        const uv_buf_t* buf,
                        const struct sockaddr* addr,
+                       const struct sockaddr* dst,
                        unsigned flags) {
   CHECK_HANDLE(handle);
   ASSERT_OK(flags);
