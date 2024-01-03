@@ -423,7 +423,7 @@ void uv__process_udp_recv_req(uv_loop_t* loop, uv_udp_t* handle,
         uv_udp_recv_stop(handle);
         buf = (handle->flags & UV_HANDLE_ZERO_READ) ?
               uv_buf_init(NULL, 0) : handle->recv_buffer;
-        handle->recv_cb(handle, uv_translate_sys_error(err), &buf, NULL, 0);
+        handle->recv_cb(handle, uv_translate_sys_error(err), &buf, NULL, NULL, 0);
       }
       goto done;
     }
@@ -436,6 +436,7 @@ void uv__process_udp_recv_req(uv_loop_t* loop, uv_udp_t* handle,
                     req->u.io.overlapped.InternalHigh,
                     &handle->recv_buffer,
                     (const struct sockaddr*) &handle->recv_from,
+                    NULL,
                     partial ? UV_UDP_PARTIAL : 0);
   } else if (handle->flags & UV_HANDLE_READING) {
     DWORD bytes, err, flags;
@@ -452,7 +453,7 @@ void uv__process_udp_recv_req(uv_loop_t* loop, uv_udp_t* handle,
       buf = uv_buf_init(NULL, 0);
       handle->alloc_cb((uv_handle_t*) handle, UV__UDP_DGRAM_MAXSIZE, &buf);
       if (buf.base == NULL || buf.len == 0) {
-        handle->recv_cb(handle, UV_ENOBUFS, &buf, NULL, 0);
+        handle->recv_cb(handle, UV_ENOBUFS, &buf, NULL, NULL, 0);
         goto done;
       }
 
@@ -473,7 +474,7 @@ void uv__process_udp_recv_req(uv_loop_t* loop, uv_udp_t* handle,
 
         /* Message received */
         err = ERROR_SUCCESS;
-        handle->recv_cb(handle, bytes, &buf, (const struct sockaddr*) &from, 0);
+        handle->recv_cb(handle, bytes, &buf, (const struct sockaddr*) &from, NULL, 0);
       } else {
         err = WSAGetLastError();
         if (err == WSAEMSGSIZE) {
@@ -482,19 +483,20 @@ void uv__process_udp_recv_req(uv_loop_t* loop, uv_udp_t* handle,
                           bytes,
                           &buf,
                           (const struct sockaddr*) &from,
+                          NULL,
                           UV_UDP_PARTIAL);
         } else if (err == WSAEWOULDBLOCK) {
           /* Kernel buffer empty */
-          handle->recv_cb(handle, 0, &buf, NULL, 0);
+          handle->recv_cb(handle, 0, &buf, NULL, NULL, 0);
         } else if (err == WSAECONNRESET || err == WSAENETRESET) {
           /* WSAECONNRESET/WSANETRESET is ignored because this just indicates
            * that a previous sendto operation failed.
            */
-          handle->recv_cb(handle, 0, &buf, NULL, 0);
+          handle->recv_cb(handle, 0, &buf, NULL, NULL, 0);
         } else {
           /* Any other error that we want to report back to the user. */
           uv_udp_recv_stop(handle);
-          handle->recv_cb(handle, uv_translate_sys_error(err), &buf, NULL, 0);
+          handle->recv_cb(handle, uv_translate_sys_error(err), &buf, NULL, NULL, 0);
         }
       }
     }
